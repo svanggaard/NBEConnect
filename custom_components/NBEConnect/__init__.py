@@ -65,9 +65,7 @@ class RTBDataCoordinator(DataUpdateCoordinator):
         """Fetch the latest data from the device."""
         try:
             operating_data = await self.hass.async_add_executor_job(self.proxy.get, "operating_data/")
-            consumption_data  = await self.hass.async_add_executor_job(self.proxy.get, "consumption_data/counter")
-            logger.debug(operating_data)
-            logger.debug(consumption_data)
+            consumption_data  = await self.hass.async_add_executor_job(self.proxy.get, "consumption_data/counter")            
             if operating_data is not None:
                 if consumption_data is not None:
                     operating_data = operating_data + consumption_data

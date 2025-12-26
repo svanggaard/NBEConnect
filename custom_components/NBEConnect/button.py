@@ -1,48 +1,66 @@
-from homeassistant.core import callback
-from homeassistant.helpers.entity import Entity
 from homeassistant.components.button import ButtonEntity
-
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
-from .protocol import Proxy
 from logging import getLogger
 
 _LOGGER = getLogger(__name__)
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    coordinator = hass.data[DOMAIN][config_entry.entry_id+'_coordinator']
-    proxy = hass.data[DOMAIN][config_entry.entry_id]
+async def async_setup_entry(hass, entry, async_add_entities):
+    dc = hass.data[DOMAIN][entry.entry_id+'_coordinator']
+    
+    serial = "Unknown"
+    if hasattr(dc.proxy, 'serial') and dc.proxy.serial:
+        serial = dc.proxy.serial
+    elif entry.data.get("serial"):
+        serial = entry.data.get("serial")
+
+    device_info = {
+        "identifiers": {(DOMAIN, serial)},
+        "name": "NBE Boiler",
+        "manufacturer": "NBE",
+        "model": "V7/V13 Controller"
+    }
 
     async_add_entities([
-        RTBSignalButton(coordinator, proxy, "Start Boiler", "settings/misc/start", "nbestart", "1"),
-        RTBSignalButton(coordinator, proxy, "Stop Boiler", "settings/misc/stop", "nbestop", "1"),
-        RTBSignalButton(coordinator, proxy, "Reset Boiler Alarm", "settings/misc/reset_alarm", "nbereset", "1")
+        RTBSignalButton(
+            coordinator=dc, 
+            name="Reset Boiler Alarm", 
+            path="settings/misc/reset_alarm", 
+            uid="nbereset", 
+            value="1",
+            icon="mdi:alert-remove-outline",
+            dev_info=device_info
+        )
     ])
 
 class RTBSignalButton(CoordinatorEntity, ButtonEntity):
-    """Representation of a signal switch."""
+    """Representation of a signal button."""
 
-    def __init__(self, coordinator, proxy, name, path, uid, value):
-        """Initialize the switch."""
+    def __init__(self, coordinator, name, path, uid, value, icon, dev_info):
         super().__init__(coordinator)
         self._name = name
-        self._state = False
-        self.proxy = proxy
         self._path = path
         self._value = value
         self.uid = uid
+        self._attr_icon = icon
+        self._dev_info = dev_info
+        self._attr_unique_id = f"{coordinator.entry_id}_{uid}"
 
     @property
     def name(self):
-        """Return the name of the switch."""
-        return self._name
-    
-    @property
-    def unique_id(self):
-        return self.uid
+        return f"NBE {self._name}"
 
     def press(self) -> None:
         """Press the button."""
-        _LOGGER.debug(f"asynch press {self._name} - awaiting sendboilercmd..")
-        self.proxy.set(self._path, self._value)
-        _LOGGER.debug(f"asynch press {self._name} - Done!")
+        _LOGGER.debug(f"Async press {self._name}")
+        proxy = self.coordinator.proxy
+        if proxy:
+            try:
+                proxy.set(self._path, self._value)
+            except Exception as e:
+                _LOGGER.warning(f"Button press error (might be okay): {e}")
+        _LOGGER.debug(f"Async press {self._name} - Done!")
+
+    @property
+    def device_info(self):
+        return self._dev_info

@@ -1,2 +1,2 @@
 DOMAIN = "nbeconnect"
-PLATFORMS = ['sensor', 'button']
+PLATFORMS = ['sensor', 'button', "number", "switch"]
